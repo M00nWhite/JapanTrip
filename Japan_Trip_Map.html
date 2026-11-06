@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voyage au Japon - Hiver 2026</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        #sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        #sidebar h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            text-align: center;
+        }
+        .filter-btn {
+            display: block;
+            width: 100%;
+            background-color: #34495e;
+            color: white;
+            border: 1px solid #45627d;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.2s;
+        }
+        .filter-btn:hover { background-color: #4ca1af; }
+        .filter-btn.active { background-color: #2980b9; font-weight: bold; }
+        #map {
+            flex-grow: 1;
+            height: 100vh;
+        }
+        /* Style personnalisé pour les émojis sur la carte */
+        .custom-emoji-icon {
+            font-size: 24px;
+            text-align: center;
+            line-height: 24px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>Mon Itinéraire</h2>
+        <button class="filter-btn active" onclick="filterMap('all')">🌍 Voir Tout le Trajet</button>
+        <hr style="border-color:#45627d; margin:15px 0;">
+        <div id="day-buttons"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialisation de la carte (centrée grossièrement sur le nord du Japon)
+        const map = L.map('map').setView([39.0, 140.0], 6);
+
+        // Ajout du fond de carte OpenStreetMap FRANCE (Aucune clé API nécessaire)
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap France | Données &copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Base de données des lieux avec leurs coordonnées GPS
+        const locations = [
+            // JOUR 1
+            { day: 1, name: "Gare de Higashi-Omiya", lat: 35.9491, lng: 139.6397, icon: "🚆" },
+            { day: 1, name: "Gare de Nikko", lat: 36.7475, lng: 139.6224, icon: "🚆" },
+            { day: 1, name: "Pont Shinkyo", lat: 36.7533, lng: 139.6030, icon: "🌉" },
+            { day: 1, name: "Hotel Famitec Nikko", lat: 36.7482, lng: 139.6201, icon: "🏨" },
+            // JOUR 2
+            { day: 2, name: "Hotel Famitec Nikko", lat: 36.7482, lng: 139.6201, icon: "🏨" },
+            { day: 2, name: "Lac Chuzenji", lat: 36.7381, lng: 139.4835, icon: "🏞️" },
+            { day: 2, name: "Chutes Kegon", lat: 36.7381, lng: 139.5020, icon: "💧" },
+            { day: 2, name: "Gare de Nikko", lat: 36.7475, lng: 139.6224, icon: "🚆" },
+            { day: 2, name: "Gare de Sendai", lat: 38.2601, lng: 140.8824, icon: "🚆" },
+            { day: 2, name: "Kokubuncho", lat: 38.2631, lng: 140.8700, icon: "🌃" },
+            { day: 2, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            // JOUR 3
+            { day: 3, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            { day: 3, name: "Temple Yama-Dera", lat: 38.3121, lng: 140.4354, icon: "⛩️" },
+            { day: 3, name: "Ruines du château d'Aoba", lat: 38.2524, lng: 140.8553, icon: "⛩️" },
+            { day: 3, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            // JOUR 4
+            { day: 4, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            { day: 4, name: "Cascade Shirogane", lat: 38.5714, lng: 140.5312, icon: "💧" },
+            { day: 4, name: "Ryokan Notoya", lat: 38.5711, lng: 140.5302, icon: "🏯" },
+            { day: 4, name: "Bain Shirogane-yu", lat: 38.5735, lng: 140.5284, icon: "♨️" },
+            { day: 4, name: "Waraku Ashiyu", lat: 38.5721, lng: 140.5293, icon: "♨️" },
+            { day: 4, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            // JOUR 5
+            { day: 5, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
+            { day: 5, name: "Gare de Sendai", lat: 38.2601, lng: 140.8824, icon: "🚆" },
+            { day: 5, name: "Gare de Kakunodate", lat: 39.5921, lng: 140.5641, icon: "🚆" },
+            { day: 5, name: "Ekimae-gura", lat: 39.5922, lng: 140.5642, icon: "🏛️" },
+            { day: 5, name: "Résidence Ishiguro", lat: 39.6012, lng: 140.5621, icon: "⛩️" },
+            { day: 5, name: "Résidence Aoyagi", lat: 39.6001, lng: 140.5623, icon: "⛩️" },
+            { day: 5, name: "HOTEL Reise Basis", lat: 39.5932, lng: 140.5654, icon: "🏨" },
+            // JOUR 6
+            { day: 6, name: "HOTEL Reise Basis", lat: 39.5932, lng: 140.5654, icon: "🏨" },
+            { day: 6, name: "Gare de Kakunodate", lat: 39.5921, lng: 140.5641, icon: "🚆" },
+            { day: 6, name: "Gare de Tazawako", lat: 39.7001, lng: 140.7224, icon: "🚆" },
+            { day: 6, name: "Sanctuaire Kansagu", lat: 39.7424, lng: 140.6651, icon: "⛩️" },
+            { day: 6, name: "Tsurunoyu Onsen", lat: 39.8091, lng: 140.7762, icon: "♨️" },
+            { day: 6, name: "Kuroyu Onsen", lat: 39.8052, lng: 140.8141, icon: "♨️" },
+            { day: 6, name: "Gare de Yokote", lat: 39.3111, lng: 140.5562, icon: "🚆" },
+            { day: 6, name: "Quad Inn Yokote", lat: 39.3094, lng: 140.5501, icon: "🏨" },
+            // JOUR 7
+            { day: 7, name: "Quad Inn Yokote", lat: 39.3094, lng: 140.5501, icon: "🏨" },
+            { day: 7, name: "Akita Furusato Mura", lat: 39.2934, lng: 140.5361, icon: "🏛️" },
+            { day: 7, name: "Gare de Yokote", lat: 39.3111, lng: 140.5562, icon: "🚆" },
+            { day: 7, name: "Gare de Hirosaki", lat: 40.5991, lng: 140.4851, icon: "🚆" },
+            { day: 7, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
+            // JOUR 8
+            { day: 8, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
+            { day: 8, name: "Château de Hirosaki", lat: 40.6094, lng: 140.4641, icon: "⛩️" },
+            { day: 8, name: "Neputa Mura", lat: 40.6131, lng: 140.4682, icon: "🏛️" },
+            { day: 8, name: "Zenringai", lat: 40.5954, lng: 140.4571, icon: "⛩️" },
+            { day: 8, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
+            // JOUR 9
+            { day: 9, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
+            { day: 9, name: "Gare de Hirosaki", lat: 40.5991, lng: 140.4851, icon: "🚆" },
+            { day: 9, name: "Gare de Aomori", lat: 40.8291, lng: 140.7342, icon: "🚆" },
+            { day: 9, name: "Hakkoda Ropeway", lat: 40.6432, lng: 140.8521, icon: "🚠" },
+            { day: 9, name: "Nebuta Museum Wa Rasse", lat: 40.8301, lng: 140.7351, icon: "🏛️" },
+            { day: 9, name: "APA Hotel Aomori", lat: 40.8284, lng: 140.7392, icon: "🏨" },
+            // JOUR 10
+            { day: 10, name: "APA Hotel Aomori", lat: 40.8284, lng: 140.7392, icon: "🏨" },
+            { day: 10, name: "Gare de Aomori", lat: 40.8291, lng: 140.7342, icon: "🚆" },
+            { day: 10, name: "Gare de Hakodate", lat: 41.7731, lng: 140.7262, icon: "🚆" },
+            { day: 10, name: "Kanemori Red Brick", lat: 41.7662, lng: 140.7161, icon: "🧱" },
+            { day: 10, name: "Consulat britannique", lat: 41.7654, lng: 140.7112, icon: "🏛️" },
+            { day: 10, name: "Observatoire Hakodate", lat: 41.7584, lng: 140.7042, icon: "🏢" },
+            { day: 10, name: "Hachiman-zaka", lat: 41.7644, lng: 140.7131, icon: "🌃" },
+            { day: 10, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
+            // JOUR 11
+            { day: 11, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
+            { day: 11, name: "Parc de Goryokaku", lat: 41.7961, lng: 140.7562, icon: "⛲" },
+            { day: 11, name: "Tour de Goryokaku", lat: 41.7944, lng: 140.7541, icon: "🏢" },
+            { day: 11, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
+            // JOUR 12
+            { day: 12, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
+            { day: 12, name: "Sanctuaire Yukura", lat: 41.7781, lng: 140.7842, icon: "⛩️" },
+            { day: 12, name: "Gare de Hakodate", lat: 41.7731, lng: 140.7262, icon: "🚆" },
+            { day: 12, name: "Gare de Noboribetsu", lat: 42.4501, lng: 141.1822, icon: "🚆" },
+            { day: 12, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
+            // JOUR 13
+            { day: 13, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
+            { day: 13, name: "Noboribetsu Jigokudani", lat: 42.4971, lng: 141.1442, icon: "🧭" },
+            { day: 13, name: "Dai-ichi Takimotokan", lat: 42.4952, lng: 141.1431, icon: "♨️" },
+            { day: 13, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
+            // JOUR 14
+            { day: 14, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
+            { day: 14, name: "Gare de Noboribetsu", lat: 42.4501, lng: 141.1822, icon: "🚆" },
+            { day: 14, name: "Gare de Shiraoi", lat: 42.5531, lng: 141.3532, icon: "🚆" },
+            { day: 14, name: "Musée Upopoy", lat: 42.5592, lng: 141.3581, icon: "🏛️" },
+            { day: 14, name: "Gare de Chitose", lat: 42.8281, lng: 141.6512, icon: "🚆" },
+            { day: 14, name: "Chitose Airport Hotel", lat: 42.8272, lng: 141.6501, icon: "🏨" },
+            // JOUR 15
+            { day: 15, name: "Chitose Airport Hotel", lat: 42.8272, lng: 141.6501, icon: "🏨" },
+            { day: 15, name: "Lac Shikotsu", lat: 42.7561, lng: 141.3912, icon: "🏞️" },
+            { day: 15, name: "Pont Yamasen", lat: 42.7554, lng: 141.3971, icon: "🌉" },
+            { day: 15, name: "Gare de Chitose", lat: 42.8281, lng: 141.6512, icon: "🚆" },
+            { day: 15, name: "Gare Sapporo", lat: 43.0681, lng: 141.3502, icon: "🚆" },
+            { day: 15, name: "GARDENS CABIN", lat: 43.0601, lng: 141.3532, icon: "🏨" }
+        ];
+
+        let currentMarkers = [];
+        let polyline = null;
+
+        // Génération automatique des boutons de jours
+        const dayButtonsContainer = document.getElementById('day-buttons');
+        for (let i = 1; i <= 15; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.innerHTML = `Jour ${i}`;
+            btn.onclick = (e) => filterMap(i, e.target);
+            dayButtonsContainer.appendChild(btn);
+        }
+
+        // Fonction pour filtrer l'affichage
+        function filterMap(day, buttonElement = null) {
+            // Gestion de la couleur des boutons
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            if(buttonElement) {
+                buttonElement.classList.add('active');
+            } else {
+                document.querySelector('.filter-btn').classList.add('active'); // Bouton "all"
+            }
+
+            // Nettoyage de la carte
+            currentMarkers.forEach(marker => map.removeLayer(marker));
+            currentMarkers = [];
+            if(polyline) map.removeLayer(polyline);
+
+            // Filtrage des lieux
+            const filteredLocations = day === 'all' 
+                ? locations 
+                : locations.filter(loc => loc.day === day);
+
+            const latlngs = [];
+
+            // Ajout des nouveaux marqueurs
+            filteredLocations.forEach(loc => {
+                const customIcon = L.divIcon({
+                    html: loc.icon,
+                    className: 'custom-emoji-icon',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+
+                const marker = L.marker([loc.lat, loc.lng], {icon: customIcon})
+                    .bindPopup(`<b>Jour ${loc.day}</b><br>${loc.name}`)
+                    .addTo(map);
+                
+                currentMarkers.push(marker);
+                latlngs.push([loc.lat, loc.lng]);
+            });
+
+            // Ajout de la ligne du trajet et zoom automatique
+            if (latlngs.length > 0) {
+                polyline = L.polyline(latlngs, {color: '#e74c3c', weight: 3, dashArray: '5, 10'}).addTo(map);
+                const bounds = L.latLngBounds(latlngs);
+                map.fitBounds(bounds, {padding: [50, 50], maxZoom: 14});
+            }
+        }
+
+        // Charger tout par défaut au lancement
+        filterMap('all');
+    </script>
+</body>
+</html>
