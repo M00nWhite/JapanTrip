@@ -3,252 +3,607 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voyage au Japon - Hiver 2026</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    
+    <title>Itinéraire Japon Hiver - Carte Interactive</title>
+    <!-- CSS Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <style>
+        :root {
+            --primary: #2C3E50;
+            --sidebar-width: 320px;
+            --panel-width: 400px;
+            --bg-light: #ECF0F1;
+        }
+        
+        html {
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             margin: 0;
             padding: 0;
-            display: flex;
             height: 100vh;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
         }
+        
+        /* Layout principal */
         #sidebar {
-            width: 250px;
-            background-color: #2c3e50;
+            width: var(--sidebar-width);
+            background: var(--primary);
             color: white;
-            padding: 15px;
-            overflow-y: auto;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
             z-index: 1000;
         }
-        #sidebar h2 {
-            font-size: 1.2rem;
-            margin-top: 0;
-            text-align: center;
-        }
-        .filter-btn {
-            display: block;
-            width: 100%;
-            background-color: #34495e;
-            color: white;
-            border: 1px solid #45627d;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 4px;
-            cursor: pointer;
-            text-align: left;
-            transition: background 0.2s;
-        }
-        .filter-btn:hover { background-color: #4ca1af; }
-        .filter-btn.active { background-color: #2980b9; font-weight: bold; }
-        #map {
+
+        #map-container {
             flex-grow: 1;
-            height: 100vh;
+            position: relative;
         }
-        /* Style personnalisé pour les émojis sur la carte */
-        .custom-emoji-icon {
-            font-size: 24px;
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1;
+        }
+
+        /* Sidebar Gauche (Sélection du jour) */
+        .sidebar-header {
+            padding: 20px;
+            background: #1A252F;
             text-align: center;
-            line-height: 24px;
-            background: rgba(255,255,255,0.8);
+        }
+        .sidebar-header h2 { margin: 0; font-size: 1.2rem; }
+        .day-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        .day-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.3s;
+        }
+        .day-item:hover, .day-item.active {
+            background: #34495E;
+            border-left: 5px solid #3498DB;
+        }
+
+        /* Panneau Latéral Droit (Détails) */
+        #details-panel {
+            position: absolute;
+            top: 0;
+            right: calc(var(--panel-width) * -1); /* Hidden by default */
+            width: var(--panel-width);
+            height: 100%;
+            background: white;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transition: right 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+        #details-panel.open {
+            right: 0;
+        }
+        .panel-header {
+            background: #3498DB;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header h3 { margin: 0; }
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .panel-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--bg-light);
+        }
+        
+        /* Style du résumé (Itinéraire) */
+        .place-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #3498DB;
+        }
+        .place-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        .place-link a {
+            color: #3498DB;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .place-link a:hover { text-decoration: underline; }
+        .transit-box {
+            margin: 10px 0 15px 15px;
+            padding: 10px;
+            background: #F8F9FA;
+            border-left: 2px dashed #BDC3C7;
+            font-size: 0.9rem;
+            color: #555;
+            white-space: pre-line;
+        }
+
+        /* Zone de notes textuelles */
+        .notes-section {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+        .notes-section h4 { margin: 0 0 10px 0; color: var(--primary); }
+        textarea#daily-notes {
+            width: 100%;
+            height: 120px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        /* Bouton Overlay Map */
+        #toggle-panel-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+            background: #3498DB;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            display: none; /* Masqué quand le panel est ouvert */
+        }
+        #toggle-panel-btn:hover { background: #2980B9; }
+
+        /* Icones Emojis */
+        .emoji-marker {
+            background: white;
+            border: 2px solid #3498DB;
             border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
 
+    <!-- Sidebar Gauche -->
     <div id="sidebar">
-        <h2>Mon Itinéraire</h2>
-        <button class="filter-btn active" onclick="filterMap('all')">🌍 Voir Tout le Trajet</button>
-        <hr style="border-color:#45627d; margin:15px 0;">
-        <div id="day-buttons"></div>
+        <div class="sidebar-header">
+            <h2>Itinéraire Japon</h2>
+        </div>
+        <div class="day-list" id="day-list">
+            <!-- Rempli par JS -->
+        </div>
     </div>
 
-    <div id="map"></div>
+    <!-- Map & Panel Container -->
+    <div id="map-container">
+        <div id="map"></div>
+        
+        <button id="toggle-panel-btn" onclick="togglePanel()">📋 Voir le résumé du jour</button>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <!-- Panel Latéral Droit -->
+        <div id="details-panel">
+            <div class="panel-header">
+                <h3 id="panel-title">Détails</h3>
+                <button class="close-btn" onclick="togglePanel()">✖</button>
+            </div>
+            <div class="panel-content" id="panel-content">
+                <!-- Itinéraire rempli par JS -->
+            </div>
+            <div class="notes-section">
+                <h4>📝 Notes & Infos :</h4>
+                <div id="daily-notes" style="margin-top: 10px; font-size: 0.95rem; color: #333; line-height: 1.4;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script>
-        // Initialisation de la carte (centrée grossièrement sur le nord du Japon)
-        const map = L.map('map').setView([39.0, 140.0], 6);
+        /* 1. Dictionnaire des emojis selon le type */
+        const EMOJIS = {
+            hotel: "🏨",
+            city: "🏙️",
+            station: "🚆",
+            museum: "🏛️",
+            observatory: "🔭",
+            amusement: "🎪",
+            onsen: "♨️",
+            shrine: "⛩️",
+            bridge: "🌉",
+            bus: "🚌",
+            ropeway: "🚠",
+            nature: "🌲",
+            lake: "🏞️",
+            waterfall: "💧",
+            castle: "🏯",
+            see: "📸",
+            default: "📍"
+        };
 
-        // Ajout du fond de carte OpenStreetMap FRANCE (Aucune clé API nécessaire)
-        L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap France | Données &copy; OpenStreetMap contributors'
-        }).addTo(map);
-
-        // Base de données des lieux avec leurs coordonnées GPS
-        const locations = [
-            // JOUR 1
-            { day: 1, name: "Gare de Higashi-Omiya", lat: 35.9491, lng: 139.6397, icon: "🚆" },
-            { day: 1, name: "Gare de Nikko", lat: 36.7475, lng: 139.6224, icon: "🚆" },
-            { day: 1, name: "Pont Shinkyo", lat: 36.7533, lng: 139.6030, icon: "🌉" },
-            { day: 1, name: "Hotel Famitec Nikko", lat: 36.7482, lng: 139.6201, icon: "🏨" },
-            // JOUR 2
-            { day: 2, name: "Hotel Famitec Nikko", lat: 36.7482, lng: 139.6201, icon: "🏨" },
-            { day: 2, name: "Lac Chuzenji", lat: 36.7381, lng: 139.4835, icon: "🏞️" },
-            { day: 2, name: "Chutes Kegon", lat: 36.7381, lng: 139.5020, icon: "💧" },
-            { day: 2, name: "Gare de Nikko", lat: 36.7475, lng: 139.6224, icon: "🚆" },
-            { day: 2, name: "Gare de Sendai", lat: 38.2601, lng: 140.8824, icon: "🚆" },
-            { day: 2, name: "Kokubuncho", lat: 38.2631, lng: 140.8700, icon: "🌃" },
-            { day: 2, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            // JOUR 3
-            { day: 3, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            { day: 3, name: "Temple Yama-Dera", lat: 38.3121, lng: 140.4354, icon: "⛩️" },
-            { day: 3, name: "Ruines du château d'Aoba", lat: 38.2524, lng: 140.8553, icon: "⛩️" },
-            { day: 3, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            // JOUR 4
-            { day: 4, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            { day: 4, name: "Cascade Shirogane", lat: 38.5714, lng: 140.5312, icon: "💧" },
-            { day: 4, name: "Ryokan Notoya", lat: 38.5711, lng: 140.5302, icon: "🏯" },
-            { day: 4, name: "Bain Shirogane-yu", lat: 38.5735, lng: 140.5284, icon: "♨️" },
-            { day: 4, name: "Waraku Ashiyu", lat: 38.5721, lng: 140.5293, icon: "♨️" },
-            { day: 4, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            // JOUR 5
-            { day: 5, name: "ELE Hotel Sendai", lat: 38.2612, lng: 140.8871, icon: "🏨" },
-            { day: 5, name: "Gare de Sendai", lat: 38.2601, lng: 140.8824, icon: "🚆" },
-            { day: 5, name: "Gare de Kakunodate", lat: 39.5921, lng: 140.5641, icon: "🚆" },
-            { day: 5, name: "Ekimae-gura", lat: 39.5922, lng: 140.5642, icon: "🏛️" },
-            { day: 5, name: "Résidence Ishiguro", lat: 39.6012, lng: 140.5621, icon: "⛩️" },
-            { day: 5, name: "Résidence Aoyagi", lat: 39.6001, lng: 140.5623, icon: "⛩️" },
-            { day: 5, name: "HOTEL Reise Basis", lat: 39.5932, lng: 140.5654, icon: "🏨" },
-            // JOUR 6
-            { day: 6, name: "HOTEL Reise Basis", lat: 39.5932, lng: 140.5654, icon: "🏨" },
-            { day: 6, name: "Gare de Kakunodate", lat: 39.5921, lng: 140.5641, icon: "🚆" },
-            { day: 6, name: "Gare de Tazawako", lat: 39.7001, lng: 140.7224, icon: "🚆" },
-            { day: 6, name: "Sanctuaire Kansagu", lat: 39.7424, lng: 140.6651, icon: "⛩️" },
-            { day: 6, name: "Tsurunoyu Onsen", lat: 39.8091, lng: 140.7762, icon: "♨️" },
-            { day: 6, name: "Kuroyu Onsen", lat: 39.8052, lng: 140.8141, icon: "♨️" },
-            { day: 6, name: "Gare de Yokote", lat: 39.3111, lng: 140.5562, icon: "🚆" },
-            { day: 6, name: "Quad Inn Yokote", lat: 39.3094, lng: 140.5501, icon: "🏨" },
-            // JOUR 7
-            { day: 7, name: "Quad Inn Yokote", lat: 39.3094, lng: 140.5501, icon: "🏨" },
-            { day: 7, name: "Akita Furusato Mura", lat: 39.2934, lng: 140.5361, icon: "🏛️" },
-            { day: 7, name: "Gare de Yokote", lat: 39.3111, lng: 140.5562, icon: "🚆" },
-            { day: 7, name: "Gare de Hirosaki", lat: 40.5991, lng: 140.4851, icon: "🚆" },
-            { day: 7, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
-            // JOUR 8
-            { day: 8, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
-            { day: 8, name: "Château de Hirosaki", lat: 40.6094, lng: 140.4641, icon: "⛩️" },
-            { day: 8, name: "Neputa Mura", lat: 40.6131, lng: 140.4682, icon: "🏛️" },
-            { day: 8, name: "Zenringai", lat: 40.5954, lng: 140.4571, icon: "⛩️" },
-            { day: 8, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
-            // JOUR 9
-            { day: 9, name: "Hirosaki Grand Hotel", lat: 40.6022, lng: 140.4701, icon: "🏨" },
-            { day: 9, name: "Gare de Hirosaki", lat: 40.5991, lng: 140.4851, icon: "🚆" },
-            { day: 9, name: "Gare de Aomori", lat: 40.8291, lng: 140.7342, icon: "🚆" },
-            { day: 9, name: "Hakkoda Ropeway", lat: 40.6432, lng: 140.8521, icon: "🚠" },
-            { day: 9, name: "Nebuta Museum Wa Rasse", lat: 40.8301, lng: 140.7351, icon: "🏛️" },
-            { day: 9, name: "APA Hotel Aomori", lat: 40.8284, lng: 140.7392, icon: "🏨" },
-            // JOUR 10
-            { day: 10, name: "APA Hotel Aomori", lat: 40.8284, lng: 140.7392, icon: "🏨" },
-            { day: 10, name: "Gare de Aomori", lat: 40.8291, lng: 140.7342, icon: "🚆" },
-            { day: 10, name: "Gare de Hakodate", lat: 41.7731, lng: 140.7262, icon: "🚆" },
-            { day: 10, name: "Kanemori Red Brick", lat: 41.7662, lng: 140.7161, icon: "🧱" },
-            { day: 10, name: "Consulat britannique", lat: 41.7654, lng: 140.7112, icon: "🏛️" },
-            { day: 10, name: "Observatoire Hakodate", lat: 41.7584, lng: 140.7042, icon: "🏢" },
-            { day: 10, name: "Hachiman-zaka", lat: 41.7644, lng: 140.7131, icon: "🌃" },
-            { day: 10, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
-            // JOUR 11
-            { day: 11, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
-            { day: 11, name: "Parc de Goryokaku", lat: 41.7961, lng: 140.7562, icon: "⛲" },
-            { day: 11, name: "Tour de Goryokaku", lat: 41.7944, lng: 140.7541, icon: "🏢" },
-            { day: 11, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
-            // JOUR 12
-            { day: 12, name: "Toyoko Inn Hakodate", lat: 41.7721, lng: 140.7252, icon: "🏨" },
-            { day: 12, name: "Sanctuaire Yukura", lat: 41.7781, lng: 140.7842, icon: "⛩️" },
-            { day: 12, name: "Gare de Hakodate", lat: 41.7731, lng: 140.7262, icon: "🚆" },
-            { day: 12, name: "Gare de Noboribetsu", lat: 42.4501, lng: 141.1822, icon: "🚆" },
-            { day: 12, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
-            // JOUR 13
-            { day: 13, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
-            { day: 13, name: "Noboribetsu Jigokudani", lat: 42.4971, lng: 141.1442, icon: "🧭" },
-            { day: 13, name: "Dai-ichi Takimotokan", lat: 42.4952, lng: 141.1431, icon: "♨️" },
-            { day: 13, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
-            // JOUR 14
-            { day: 14, name: "Noboribetsu AKA&AO", lat: 42.4512, lng: 141.1811, icon: "🏨" },
-            { day: 14, name: "Gare de Noboribetsu", lat: 42.4501, lng: 141.1822, icon: "🚆" },
-            { day: 14, name: "Gare de Shiraoi", lat: 42.5531, lng: 141.3532, icon: "🚆" },
-            { day: 14, name: "Musée Upopoy", lat: 42.5592, lng: 141.3581, icon: "🏛️" },
-            { day: 14, name: "Gare de Chitose", lat: 42.8281, lng: 141.6512, icon: "🚆" },
-            { day: 14, name: "Chitose Airport Hotel", lat: 42.8272, lng: 141.6501, icon: "🏨" },
-            // JOUR 15
-            { day: 15, name: "Chitose Airport Hotel", lat: 42.8272, lng: 141.6501, icon: "🏨" },
-            { day: 15, name: "Lac Shikotsu", lat: 42.7561, lng: 141.3912, icon: "🏞️" },
-            { day: 15, name: "Pont Yamasen", lat: 42.7554, lng: 141.3971, icon: "🌉" },
-            { day: 15, name: "Gare de Chitose", lat: 42.8281, lng: 141.6512, icon: "🚆" },
-            { day: 15, name: "Gare Sapporo", lat: 43.0681, lng: 141.3502, icon: "🚆" },
-            { day: 15, name: "GARDENS CABIN", lat: 43.0601, lng: 141.3532, icon: "🏨" }
+        /* 2. Données de l'itinéraire complètes */
+const itineraryData = [
+            {
+                day: 1,
+                title: "Jour 1 - Nikko",
+                places: [
+                    { name: "Higashi-Omiya Station", type: "station", lat: 35.949, lng: 139.640, link: "https://maps.app.goo.gl/Z6Q72tyqBJatX8uy8", transit: "[TRAIN] De 14h30 à 16h57, 1 correspondance\nPrix : 1440Yens<br><a href='https://maps.app.goo.gl/Xk5PuJbTuSccvd956' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Nikko", type: "station", lat: 36.747, lng: 139.622, link: "https://maps.app.goo.gl/5hFSJxb65z6dZXEk9", transit: "[BUS] Toutes les 15 mins (jusqu’à 18h17, puis 45min)\nPrix : 220Yens (⚠️NOV HOURS)<br><a href='https://maps.app.goo.gl/S8NYaB5AzATvRvSc9' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 30min" },
+                    { name: "Pont Shinkyo", type: "bridge", lat: 36.753, lng: 139.604, link: "https://maps.app.goo.gl/e9Lj83EqKkRMuUTDA", transit: "[BUS] Toutes les 15 mins (jusqu’à 18h17, puis toutes les 45min)\nPrix : 220Yens (⚠️NOV HOURS)<br><a href='https://maps.app.goo.gl/xcUdeqk7xuymo2PD6' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 30min" },
+                    { name: "Hotel Famitec Nikko Station", type: "hotel", lat: 36.746, lng: 139.623, link: "https://maps.app.goo.gl/kio5GWEGk4SxAnsM6", transit: null }
+                ],
+                notes: "Aucune"
+            },
+            {
+                day: 2,
+                title: "Jour 2 - Nikko / Sendai",
+                places: [
+                    { name: "Hotel Famitec Nikko Station", type: "hotel", lat: 36.746, lng: 139.623, link: "https://maps.app.goo.gl/kio5GWEGk4SxAnsM6", transit: "[BUS] De 7h54 à 8h44 (toutes les heures)\nPrix : 1300Yens (⚠️NOV HOURS)<br><a href='https://maps.app.goo.gl/8ve5Hsn66mrWSL536' target='_blank'>Trajet ↗</a>" },
+                    { name: "Lac Chuzenji", type: "lake", lat: 36.738, lng: 139.484, link: "https://maps.app.goo.gl/4GhdExa5CCsSD3Zt7", transit: "[A PIED] 8min" },
+                    { name: "Chutes Kegon", type: "waterfall", lat: 36.737, lng: 139.503, link: "https://maps.app.goo.gl/siqydAY8PJuGB8oS8", transit: "[BUS] De 12h04 à 12h45 (toutes les 30min)\nPrix : 1250Yens (⚠️NOV HOURS)<br><a href='https://maps.app.goo.gl/tVyh8U45oY1CWumj6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Nikko", type: "station", lat: 36.747, lng: 139.622, link: "https://maps.app.goo.gl/QQem6ck1EEMyTd957", transit: "[TRAIN] De 14h19 à 16h38, 1 correspondance\nPrix : 9250Yens (⚠️Shinkansen)<br><a href='https://maps.app.goo.gl/PhEjvFo57gegcvmA6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Sendai", type: "station", lat: 38.260, lng: 140.882, link: "https://maps.app.goo.gl/BKWSscLB9ZboJJbx9", transit: "[BUS] Toutes les 5 minutes (jusqu’à 23h, sinon metro)\nPrix : 150Yens<br><a href='https://maps.app.goo.gl/7TNV4cYiTGgCPE5P7' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 25min" },
+                    { name: "Kokubuncho", type: "see", lat: 38.263, lng: 140.869, link: "https://maps.app.goo.gl/Jfwi3DLNFRdyW3se6", transit: "[BUS] Toutes les 5 minutes (jusqu’à 23h, sinon metro)\nPrix : 150Yens<br><a href='https://maps.app.goo.gl/VJLaut9H6tbo5wWw6' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 25min" },
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: null }
+                ],
+                notes: "Aucune"
+            },
+            {
+                day: 3,
+                title: "Jour 3 - Yama-dera / Sendai",
+                places: [
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: "[TRAIN] De 8h04 à 9h30, direct\nPrix : 910Yens<br><a href='https://maps.app.goo.gl/La3N8f5tThTQ6WBA6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Yama-dera", type: "shrine", lat: 38.312, lng: 140.435, link: "https://maps.app.goo.gl/UkZggGNTxZTMj2aE6", transit: "[TRAIN] De 14h03 à 15h10, direct\nPrix : 910Yens<br><a href='https://maps.app.goo.gl/Xq6NW9ujJ3VPA5Bp9' target='_blank'>Trajet ↗</a><br>+<br>[BUS] Toutes les 10 mins<br>Prix : 300Yens<br>+ [A PIED] 4min<br><a href='https://maps.app.goo.gl/wx4MtDWByRUhmW8C8' target='_blank'>Trajet ↗</a><br>OU<br>[METRO] Toutes les 10 mins, prix : 210Yens + [A PIED] 21min<br><a href='https://maps.app.goo.gl/VnvQKrmQCFW1YYYKA' target='_blank'>Trajet ↗</a>" },
+                    { name: "Ruines du château d'Aoba", type: "castle", lat: 38.253, lng: 140.855, link: "https://maps.app.goo.gl/feYBxEftWjAqkKvV9", transit: "[A PIED] 18min + [METRO]<br>Prix : 210Yens + [A PIED] 15min<br><a href='https://maps.app.goo.gl/SN9SmieQNjpg2NG29' target='_blank'>Trajet ↗</a>" },
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: null }
+                ],
+                notes: "TRAJET ET MARCHE LONGUE LE MATIN (total : 1h + 2h + 1h) / essayer le “Zunda” (pâte d’edamame) dans des mochis ou autres"
+            },
+            {
+                day: 4,
+                title: "Jour 4 - Ginzan Onsen",
+                places: [
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: "[A PIED] 14min + [TRAIN] De 7h14 à 9h30, 1 correspondance\nPrix : 1790Yens<br><a href='https://maps.app.goo.gl/N6UP6nYmWYqwZ5Kk7' target='_blank'>Trajet ↗</a><br><br>[BUS] De 9h49 à 10h33 (Toutes les 1h), prix : 1000Yens + [A PIED] 7min<br><a href='https://maps.app.goo.gl/na7qWL2ixkQraZFP7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Shirogane Falls", type: "waterfall", lat: 38.571, lng: 140.531, link: "https://maps.app.goo.gl/BqkcVAL1LxVidMGM8", transit: "[A PIED] 3min" },
+                    { name: "Ryokan Notoya", type: "onsen", lat: 38.570, lng: 140.530, link: "https://maps.app.goo.gl/LUx34nQCuB9vg8796", transit: "[A PIED] 1min" },
+                    { name: "Bain public Shirogane-yu", type: "see", lat: 38.572, lng: 140.529, link: "https://maps.app.goo.gl/iGDHWKN14a66XDNm7", transit: "[A PIED] 1min" },
+                    { name: "Bain de pied Waraku Ashiyu", type: "onsen", lat: 38.572, lng: 140.529, link: "https://maps.app.goo.gl/iM74WnURiHTqHGZj6", transit: "[A PIED] 5min + [BUS] De 16h35 à 17h02 (Toutes les 1h)\nPrix : 860Yens<br><a href='https://maps.app.goo.gl/fmjzGMcAwbdPw9A6A' target='_blank'>🔗 Trajet Bus 1 Google Maps</a><br><br>[BUS] De 17h25 à 19h15, prix : 1790Yens + [A PIED] 12min<br><a href='https://maps.app.goo.gl/x3jGzHJCie86wnFK6' target='_blank'>🔗 Trajet Bus 2 Google Maps</a>" },
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: null }
+                ],
+                notes: "⚠️ PRENDRE A MANGER<br>Essayer le Pain au curry / LESSIVE !!!"
+            },
+            {
+                day: 5,
+                title: "Jour 5 - Kakunodate",
+                places: [
+                    { name: "ELE Hotel 仙台東口", type: "hotel", lat: 38.258, lng: 140.886, link: "https://maps.app.goo.gl/Ns3gmZ6EkVLjLDBV7", transit: "[A PIED] 9min" },
+                    { name: "Gare de Sendai", type: "station", lat: 38.260, lng: 140.882, link: "https://maps.app.goo.gl/DTVQX79hPFixEJVB8", transit: "[TRAIN] De 10h17 à 11h41, direct\nPrix : 8930Yens (⚠️Shinkansen)<br><a href='https://maps.app.goo.gl/ovTCuKG2LeR72ZSA8' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Kakunodate", type: "station", lat: 39.591, lng: 140.564, link: "https://maps.app.goo.gl/2s9K6XzZmhVKzNXF6", transit: "[A PIED] 1min" },
+                    { name: "Kakunodate Ekimae-gura", type: "museum", lat: 39.592, lng: 140.564, link: "https://maps.app.goo.gl/cYuo1mLFqJtDES7P6", transit: "[BUS] De 12h17 à 12h36 (Toutes les 2 heures)\nPrix : 200Yens<br><a href='https://maps.app.goo.gl/Q8gpb5FmRyo9BE7J6' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 22Min" },
+                    { name: "Résidence Ishiguro", type: "museum", lat: 39.601, lng: 140.562, link: "https://maps.app.goo.gl/LtTETEc9qSjhX3AF9", transit: "[A PIED] 1min" },
+                    { name: "Résidence Aoyagi", type: "museum", lat: 39.600, lng: 140.562, link: "https://maps.app.goo.gl/SpMVh7ZwnUacKJwR7", transit: "[BUS] De 16h00 à 16h12 (Toutes les 2 heures)\nPrix : 200yens<br><a href='https://maps.app.goo.gl/c1LktBFNZNP3z76C8' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 15min" },
+                    { name: "HOTEL Reise Basis", type: "hotel", lat: 39.591, lng: 140.563, link: "https://maps.app.goo.gl/ZzbS2HAfjeeU65878", transit: null }
+                ],
+                notes: "Essayer le Ininawa udon"
+            },
+            {
+                day: 6,
+                title: "Jour 6 - Nyuto Onsen / Yokote",
+                places: [
+                    { name: "HOTEL Reise Basis", type: "hotel", lat: 39.591, lng: 140.563, link: "https://maps.app.goo.gl/ZzbS2HAfjeeU65878", transit: "[A PIED] 7min" },
+                    { name: "Gare de Kakunodate", type: "station", lat: 39.591, lng: 140.564, link: "https://maps.app.goo.gl/HaRkxz84nwUTxDq97", transit: "[TRAIN] De 9h30 à 9h52, direct\nPrix : 350Yens<br><a href='https://maps.app.goo.gl/u51oERRJYtMCF6o6A' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Tazawako", type: "station", lat: 39.700, lng: 140.722, link: "https://maps.app.goo.gl/q6mPS1MQQgjch4B48", transit: "[BUS] De 10h44 à 11h17 (Toutes les 3 heures)\nPrix : 750Yens<br><a href='https://maps.app.goo.gl/vtLGqZnBC2WR8hxd7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Sanctuaire Kansagu (Ukiki Shrine)", type: "shrine", lat: 39.752, lng: 140.667, link: "https://maps.app.goo.gl/AGE2V4DihdZjxUueA", transit: "[BUS] De 11h35 à 12h16 (Toutes les 3 heures)\nPrix : 780Yens<br><a href='https://maps.app.goo.gl/DNjnPkHAnnoZPKjT6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Tazawako", type: "station", lat: 39.700, lng: 140.722, link: "https://maps.app.goo.gl/q6mPS1MQQgjch4B48", transit: "[BUS] De 12h25 à 12h59 (Descendre à Alpa Komakusa)\nPrix : 850Yens<br><a href='https://maps.app.goo.gl/7bYi8EaM32wSD7Ac7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Arrêt Alpa Komakusa", type: "bus", lat: 39.756, lng: 140.781, link: "https://maps.app.goo.gl/DwGQq1qZfcffMFvc7", transit: "[NAVETTE PRIVÉE] 15min (Résevée à l'avance)\nGratuit" },
+                    { name: "Tsurunoyu Onsen", type: "onsen", lat: 39.778, lng: 140.778, link: "https://maps.app.goo.gl/7frAwKhqJhtZaB1q6", transit: "[BUS YUMEGURI-GO] De 15h25 à 15h47\nGratuit avec Yumeguri-cho<br>📄 Voir PDF" },
+                    { name: "Ogama Onsen", type: "onsen", lat: 39.800, lng: 140.803, link: "https://maps.app.goo.gl/b82YyhJBE8LU72M87", transit: "[BUS] De 16h55 à 17h43 (Toutes les 2 heures)\nPrix : 950Yens<br><a href='https://maps.app.goo.gl/RdCJQRV4diUo5Y6t6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Tazawako", type: "station", lat: 39.700, lng: 140.722, link: "https://maps.app.goo.gl/q6mPS1MQQgjch4B48", transit: "[TRAIN] De 18h19 à 20h03, 1 correspondance, prix : 1040Yens<br><a href='https://maps.app.goo.gl/GCiASaorLjKfaA7n7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Yokote", type: "station", lat: 39.311, lng: 140.555, link: "https://maps.app.goo.gl/X4xWcxm8U75GbkkY6", transit: "[A PIED] 6min" },
+                    { name: "Quad Inn Yokote", type: "hotel", lat: 39.314, lng: 140.550, link: "https://maps.app.goo.gl/dDyFcdE9kuE9HUW98", transit: null }
+                ],
+                notes: "⚠️ PRENDRE A MANGER (MIDI & SOIR)<br>⚠️ APPELLER POUR PREVENIR QUE JE PREND LA NAVETTE PRIVE : 0187-46-2139 (Ouvre à 7h)"
+            },
+            {
+                day: 7,
+                title: "Jour 7 - Yokote / Hirosaki",
+                places: [
+                    { name: "Quad Inn Yokote", type: "hotel", lat: 39.314, lng: 140.550, link: "https://maps.app.goo.gl/dDyFcdE9kuE9HUW98", transit: "[BUS] De 9h07 à 9h26 (Toutes les 45min)\nPrix : 200Yens<br><a href='https://maps.app.goo.gl/VGvnY8fkjCzQhAEb6' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 32 minutes" },
+                    { name: "Akita Furusato Mura", type: "amusement", lat: 39.297, lng: 140.547, link: "https://maps.app.goo.gl/QEwYEHA14uh9EBXb9", transit: "[BUS] De 13h46 à 14H05 (Toutes les heures)\nPrix : 200Yens<br><a href='https://maps.app.goo.gl/QEwYEHA14uh9EBXb9' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 48 minutes" },
+                    { name: "Gare de Yokote", type: "station", lat: 39.311, lng: 140.555, link: "https://maps.app.goo.gl/NU3FUzPRgoYTNrPC9", transit: "[TRAIN] De 14h20 à 18h01, 1 correspondances\nPrix : 5740Yens (⚠️Express)<br><a href='https://maps.app.goo.gl/NU3FUzPRgoYTNrPC9' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Hirosaki", type: "station", lat: 40.599, lng: 140.485, link: "https://maps.app.goo.gl/rFTinjrQUGot2qdu9", transit: "[BUS] De 18h18 à 18h21 (Plein de choix)\nPrix : 250Yens<br><a href='https://maps.app.goo.gl/rFTinjrQUGot2qdu9' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 25min" },
+                    { name: "Hirosaki Grand Hotel", type: "hotel", lat: 40.601, lng: 140.472, link: "https://maps.app.goo.gl/9bkFqQY9dXNfxptC8", transit: null }
+                ],
+                notes: "Petit dej inclus / Tester le yakisoba de Yokote / LESSIVE ?<br>⚠️TRAIN EXPRESS RESERVER"
+            },
+            {
+                day: 8,
+                title: "Jour 8 - Hirosaki",
+                places: [
+                    { name: "Hirosaki Grand Hotel", type: "hotel", lat: 40.601, lng: 140.472, link: "https://maps.app.goo.gl/9bkFqQY9dXNfxptC8", transit: "[A PIED] 12min" },
+                    { name: "Château de Hirosaki", type: "castle", lat: 40.608, lng: 140.464, link: "https://maps.app.goo.gl/5K24fQZJD4XK7nj6A", transit: "[A PIED] 5min" },
+                    { name: "Musée Tsugaru-han Neputa Mura", type: "museum", lat: 40.613, lng: 140.467, link: "https://maps.app.goo.gl/RgXfppNiL3FamD8t9", transit: "[A PIED] 33min" },
+                    { name: "Zenringai", type: "shrine", lat: 40.596, lng: 140.457, link: "https://maps.app.goo.gl/zFS2yPLR8g4C9XoDA", transit: "[A PIED] 23min" },
+                    { name: "Hirosaki Grand Hotel", type: "hotel", lat: 40.601, lng: 140.472, link: "https://maps.app.goo.gl/9bkFqQY9dXNfxptC8", transit: null }
+                ],
+                notes: "Petit dej inclus / LESSIVE !!!"
+            },
+            {
+                day: 9,
+                title: "Jour 9 - Hakkoda / Aomori",
+                places: [
+                    { name: "Hirosaki Grand Hotel", type: "hotel", lat: 40.601, lng: 140.472, link: "https://maps.app.goo.gl/9bkFqQY9dXNfxptC8", transit: "[BUS] De 6h16 à 6h32 (A NE PAS RATER)\nPrix : 250Yens<br><a href='https://maps.app.goo.gl/dPTjqTPsBtcAce689' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 25min" },
+                    { name: "Gare de Hirosaki", type: "station", lat: 40.599, lng: 140.485, link: "https://maps.app.goo.gl/Yz96DBorSXm31K9e8", transit: "[TRAIN] De 6h39 à 7h22, directe\nPrix : 720Yens<br><a href='https://maps.app.goo.gl/8NbWywr2Nv6tHjQU7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Arrêt Aomori Sta. East Exit", type: "bus", lat: 40.828, lng: 140.735, link: "https://maps.app.goo.gl/JV7Ls24YPHKjXnC38", transit: "[NAVETTE PUBLIC] De 7h30 à 8h24 (UNIQUE HORAIRE)\nPrix : 1250Yens<br>📄 Voir PDF" },
+                    { name: "Hakkoda Ropeway", type: "ropeway", lat: 40.666, lng: 140.844, link: "https://maps.app.goo.gl/JVzVY8ADWgT4fmzv9", transit: "[NAVETTE PUBLIC] De 10h56 à 11h44 (Tout les 3 heures)\nPrix : 1250Yens<br>📄 Voir PDF" },
+                    { name: "Gare de Aomori", type: "station", lat: 40.829, lng: 140.734, link: "https://maps.app.goo.gl/hBbPc2zsGNmpr8Nx7", transit: "[A PIED] 1min" },
+                    { name: "Nebuta Museum Wa Rasse", type: "museum", lat: 40.829, lng: 140.736, link: "https://maps.app.goo.gl/uSwDXRFhx3Pb2jVh7", transit: "[A PIED] 6min" },
+                    { name: "APA Hotel Aomori-Eki Higashi", type: "hotel", lat: 40.826, lng: 140.738, link: "https://maps.app.goo.gl/xo2UU3ZSYixoRtBK8", transit: null }
+                ],
+                notes: "⚠️REVEIL TÔT<br>Essayer le Nokkedon au marché ou les pommes d’Aomori"
+            },
+            {
+                day: 10,
+                title: "Jour 10 - Aomori / Hakodate",
+                places: [
+                    { name: "APA Hotel Aomori-Eki Higashi", type: "hotel", lat: 40.826, lng: 140.738, link: "https://maps.app.goo.gl/xo2UU3ZSYixoRtBK8", transit: "[A PIED] 6min" },
+                    { name: "Gare de Aomori", type: "station", lat: 40.829, lng: 140.734, link: "https://maps.app.goo.gl/hBbPc2zsGNmpr8Nx7", transit: "[TRAIN] De 9h30 à 11h22, 2 correspondances\nPrix : 8300Yens (⚠️Shinkansen)<br><a href='https://maps.app.goo.gl/Uxc35mNJmjuLHDjR8' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Hakodate", type: "station", lat: 41.773, lng: 140.726, link: "https://maps.app.goo.gl/fKws1cpkrJbQRW4W6", transit: "[BUS] De 11h40 à 11h50 (Toutes les 10mins)\nPrix : 250Yens<br><a href='https://maps.app.goo.gl/tBqK7YKyd6dxFAyj9' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 16min" },
+                    { name: "Entrepôts en briques rouges de Kanemori", type: "see", lat: 41.766, lng: 140.716, link: "https://maps.app.goo.gl/Vp4eWLEvE2D6Hcho6", transit: "[A PIED] 11min" },
+                    { name: "Consulat britannique", type: "museum", lat: 41.765, lng: 140.711, link: "https://maps.app.goo.gl/WVQ9s2aVv4X5DyVWA", transit: "[A PIED] 13min + [TELEPHERIQUE] Toutes les 15min, Prix : 1200Yens<br><a href='https://maps.app.goo.gl/qrkwHxg75TBmNXFt7' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 1h22min (⚠️Risque de fermeture en hiver)" },
+                    { name: "Observatoire du Mont Hakodate", type: "observatory", lat: 41.759, lng: 140.704, link: "https://maps.app.goo.gl/tmpCsDKbR33mWRUz5", transit: "[TELEPHERIQUE] Toutes les 15min, Prix : 1200Yens + [A PIED] 8min<br><a href='https://maps.app.goo.gl/5SEtzk8pcCD8nwjy9' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 1h (⚠️Risque de fermeture en hiver)" },
+                    { name: "Hachiman-zaka", type: "city", lat: 41.763, lng: 140.711, link: "https://maps.app.goo.gl/5SQgy1JdA7gjCveU8", transit: "[BUS] Toutes les 10min\nPrix : 250Yens<br><a href='https://maps.app.goo.gl/45U4oXKFUiWJ9KcN8' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 20min" },
+                    { name: "Toyoko Inn Hokkaido Hakodate Ekimae Asaichi", type: "hotel", lat: 41.772, lng: 140.728, link: "https://maps.app.goo.gl/diBujso25RdeEb7m9", transit: null }
+                ],
+                notes: "petit dej inclus"
+            },
+            {
+                day: 11,
+                title: "Jour 11 - Goryokaku",
+                places: [
+                    { name: "Toyoko Inn Hokkaido Hakodate Ekimae Asaichi", type: "hotel", lat: 41.772, lng: 140.728, link: "https://maps.app.goo.gl/diBujso25RdeEb7m9", transit: "[BUS] De 10h03 à 10h29 (Toutes les 10min)\nPrix : 280Yens<br><a href='https://maps.app.goo.gl/XGgVUf4x6QYazJnr5' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 54min" },
+                    { name: "Parc de Goryokaku", type: "nature", lat: 41.797, lng: 140.756, link: "https://maps.app.goo.gl/ggi4LV5cmvsqcpNJ8", transit: "[A PIED] 5min" },
+                    { name: "Tour de Goryokaku", type: "observatory", lat: 41.794, lng: 140.753, link: "https://maps.app.goo.gl/uoxhjziDTC3siBAn9", transit: "[BUS] De 15h07 à 15h33 (Toutes les 10min)\nPrix : 280Yens<br><a href='https://maps.app.goo.gl/jcuqKfM3b1D7ErxH8' target='_blank'>Trajet ↗</a>\nOU\n[A PIED] 52min" },
+                    { name: "Toyoko Inn Hokkaido Hakodate Ekimae Asaichi", type: "hotel", lat: 41.772, lng: 140.728, link: "https://maps.app.goo.gl/diBujso25RdeEb7m9", transit: null }
+                ],
+                notes: "petit dej inclus / LESSIVE !!!"
+            },
+            {
+                day: 12,
+                title: "Jour 12 - Hakodate / Noboribetsu",
+                places: [
+                    { name: "Toyoko Inn Hokkaido Hakodate Ekimae Asaichi", type: "hotel", lat: 41.772, lng: 140.728, link: "https://maps.app.goo.gl/diBujso25RdeEb7m9", transit: "[BUS] De 9h10 à 9h31 (Toutes les 10min)\nPrix : 310Yens<br><a href='https://maps.app.goo.gl/dGUXE2s4DUvkuUtz5' target='_blank'>Trajet ↗</a>" },
+                    { name: "Sanctuaire Yukura", type: "shrine", lat: 41.777, lng: 140.810, link: "https://maps.app.goo.gl/3DdGCoci1ACqSnFh9", transit: "[BUS] De 12h22 à 12h55 (Toutes les 10min)\nPrix : 290Yens<br><a href='https://maps.app.goo.gl/UabyodegoP9425SEA' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Hakodate", type: "station", lat: 41.773, lng: 140.726, link: "https://maps.app.goo.gl/ThZtcPrX5CUAgusG9", transit: "[TRAIN] De 15h01 à 17h34, direct\nPrix : 7790Yens (⚠️Express)<br><a href='https://maps.app.goo.gl/2zhduN1rubGfTHuVA' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Noboribetsu", type: "station", lat: 42.454, lng: 141.179, link: "https://maps.app.goo.gl/DgUHv3xJv83TaNXs8", transit: "[A PIED] 2min" },
+                    { name: "Noboribetsu Guest House AKA&AO", type: "hotel", lat: 42.455, lng: 141.178, link: "https://maps.app.goo.gl/N4FNhScuzbya5xHY8", transit: null }
+                ],
+                notes: "⚠️TRAIN EXPRESS RESERVER<br>petit dej inclus"
+            },
+            {
+                day: 13,
+                title: "Jour 13 - Noboribetsu",
+                places: [
+                    { name: "Noboribetsu Guest House AKA&AO", type: "hotel", lat: 42.455, lng: 141.178, link: "https://maps.app.goo.gl/N4FNhScuzbya5xHY8", transit: "[BUS] De 8h20 à 8h57 (Toutes les 30min)\nPrix : 450Yens<br><a href='https://maps.app.goo.gl/ZPcstUKUFtSnsTEU7' target='_blank'>Trajet ↗</a>" },
+                    { name: "Noboribetsu Jigokudani", type: "nature", lat: 42.497, lng: 141.146, link: "https://maps.app.goo.gl/XgqkqzwHFSV3oveN9", transit: "[A PIED] 6 à 30min<br>(dépend de où je serais dans le sentier)" },
+                    { name: "Dai-ichi Takimotokan", type: "onsen", lat: 42.495, lng: 141.144, link: "https://maps.app.goo.gl/TFPeEyxhTmdhg9gg9", transit: "[BUS] De 17h06 à 17h32 (Toutes les heures)\nPrix : 450Yens" },
+                    { name: "Noboribetsu Guest House AKA&AO", type: "hotel", lat: 42.455, lng: 141.178, link: "https://maps.app.goo.gl/N4FNhScuzbya5xHY8", transit: null }
+                ],
+                notes: "petit dej inclus"
+            },
+            {
+                day: 14,
+                title: "Jour 14 - Upopoy / Chitose",
+                places: [
+                    { name: "Noboribetsu Guest House AKA&AO", type: "hotel", lat: 42.455, lng: 141.178, link: "https://maps.app.goo.gl/N4FNhScuzbya5xHY8", transit: "[A PIED] 2min" },
+                    { name: "Gare de Noboribetsu", type: "station", lat: 42.454, lng: 141.179, link: "https://maps.app.goo.gl/utrVL9zbcFn2MEpF6", transit: "[TRAIN] De 8h25 à 8h44\nPrix : 470Yens<br><a href='https://maps.app.goo.gl/tq1rqwM31tpAUijn6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Shiraoi", type: "station", lat: 42.553, lng: 141.354, link: "https://maps.app.goo.gl/1M23FuVakgUENnze8", transit: "[A PIED] 9min" },
+                    { name: "Musée/Parc Upopoy", type: "amusement", lat: 42.559, lng: 141.357, link: "https://maps.app.goo.gl/FZHvrERvJmndAkDj9", transit: "[A PIED] 9min" },
+                    { name: "Gare de Shiraoi", type: "station", lat: 42.553, lng: 141.354, link: "https://maps.app.goo.gl/fXGsPpkhsY2xg6i17", transit: "[TRAIN] De 16h25 à 17h16 (Toutes les 2 heures)\nPrix : 1380Yens<br><a href='https://maps.app.goo.gl/wV7swB687nSuRApDA' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Chitose", type: "station", lat: 42.828, lng: 141.651, link: "https://maps.app.goo.gl/EB14Ek4Q9NsnNG5C9", transit: "[A PIED] 4min" },
+                    { name: "Chitose Airport Hotel", type: "hotel", lat: 42.825, lng: 141.651, link: "https://maps.app.goo.gl/sRVjRk6Zrq297juU6", transit: null }
+                ],
+                notes: "Aucune"
+            },
+            {
+                day: 15,
+                title: "Jour 15 - Lac Shikotsu / Sapporo",
+                places: [
+                    { name: "Chitose Airport Hotel", type: "hotel", lat: 42.825, lng: 141.651, link: "https://maps.app.goo.gl/sRVjRk6Zrq297juU6", transit: "[A PIED] 4min" },
+                    { name: "Gare de Chitose", type: "station", lat: 42.828, lng: 141.651, link: "https://maps.app.goo.gl/ZSnNCryBhHQrZaTcA", transit: "[BUS] De 9h48 à 10h32 (Ligne Sora 4)\nPrix : 1140Yens<br><a href='https://transfer.navitime.biz/chuo-bus/pc/transfer/DepArrTimeList?snode=00301084&gnode=00300925&depTime=&date=2026-12-27' target='_blank'>Horaires Officiels ↗</a>" },
+                    { name: "Arrêt Lac Shikotsu", type: "bus", lat: 42.755, lng: 141.393, link: "https://maps.app.goo.gl/X4AMmiJ68gdW4eXt8", transit: "[A PIED] 7min" },
+                    { name: "Yamasen Bridge Ruins", type: "bridge", lat: 42.756, lng: 141.393, link: "https://maps.app.goo.gl/kYQkLv56XJMrjhhv9", transit: "[A PIED] 7min" },
+                    { name: "Arrêt Lac Shikotsu", type: "bus", lat: 42.755, lng: 141.393, link: "https://maps.app.goo.gl/X4AMmiJ68gdW4eXt8", transit: "[BUS] De 15h45 à 16h23 (Toutes les 2 heures)\nPrix : 1140Yens<br><a href='https://www.navitime.co.jp/bus/diagram/timelist?date=2026-12-27&hour=4&departure=00058480&arrival=00058647&line=00017001&from=up.search.area' target='_blank'>Horaires Officiels ↗</a>" },
+                    { name: "Gare de Chitose", type: "station", lat: 42.828, lng: 141.651, link: "https://maps.app.goo.gl/htXYRawnEnnWvTSE8", transit: "[TRAIN] Vers 16h30 (Toutes les 15mins)\nPrix : 2040Yens<br><a href='https://maps.app.goo.gl/d3PB9miQX2BU7N5V6' target='_blank'>Trajet ↗</a>" },
+                    { name: "Gare de Sapporo", type: "station", lat: 43.068, lng: 141.350, link: "https://maps.app.goo.gl/Vc321C8xnhcmq3Uh9", transit: "[A PIED] 16min" },
+                    { name: "GARDENS CABIN", type: "hotel", lat: 43.060, lng: 141.352, link: "https://maps.app.goo.gl/B7WdW8wQs9ejHTwG9", transit: null }
+                ],
+                notes: "Aucune"
+            }
         ];
 
+        /* 3. Initialisation de la carte Leaflet */
+        const map = L.map('map').setView([39.5, 140.5], 6);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'
+        }).addTo(map);
+
         let currentMarkers = [];
-        let polyline = null;
+        let currentPolyline = null;
+        let selectedDayId = 'all';
 
-        // Génération automatique des boutons de jours
-        const dayButtonsContainer = document.getElementById('day-buttons');
-        for (let i = 1; i <= 15; i++) {
-            const btn = document.createElement('button');
-            btn.className = 'filter-btn';
-            btn.innerHTML = `Jour ${i}`;
-            btn.onclick = (e) => filterMap(i, e.target);
-            dayButtonsContainer.appendChild(btn);
-        }
-
-        // Fonction pour filtrer l'affichage
-        function filterMap(day, buttonElement = null) {
-            // Gestion de la couleur des boutons
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            if(buttonElement) {
-                buttonElement.classList.add('active');
-            } else {
-                document.querySelector('.filter-btn').classList.add('active'); // Bouton "all"
-            }
-
-            // Nettoyage de la carte
-            currentMarkers.forEach(marker => map.removeLayer(marker));
+        /* 4. Logique de rendu */
+        function renderMap(dayId) {
+            // Nettoyage
+            currentMarkers.forEach(m => map.removeLayer(m));
             currentMarkers = [];
-            if(polyline) map.removeLayer(polyline);
-
-            // Filtrage des lieux
-            const filteredLocations = day === 'all' 
-                ? locations 
-                : locations.filter(loc => loc.day === day);
-
-            const latlngs = [];
-
-            // Ajout des nouveaux marqueurs
-            filteredLocations.forEach(loc => {
-                const customIcon = L.divIcon({
-                    html: loc.icon,
-                    className: 'custom-emoji-icon',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
+            if(currentPolyline) map.removeLayer(currentPolyline);
+            
+            selectedDayId = dayId;
+            let coords = [];
+            
+            const daysToRender = dayId === 'all' ? itineraryData : [itineraryData.find(d => d.day === parseInt(dayId))];
+            
+            daysToRender.forEach(day => {
+                let dayCoords = [];
+                day.places.forEach(place => {
+                    const latlng = [place.lat, place.lng];
+                    dayCoords.push(latlng);
+                    coords.push(latlng);
+                    
+                    // Création de l'icone emoji
+                    const icon = L.divIcon({
+                        className: 'emoji-marker',
+                        html: EMOJIS[place.type] || EMOJIS.default,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    });
+                    
+                    const marker = L.marker(latlng, { icon }).bindPopup(`<b>${place.name}</b><br>${day.title}`);
+                    marker.addTo(map);
+                    currentMarkers.push(marker);
                 });
-
-                const marker = L.marker([loc.lat, loc.lng], {icon: customIcon})
-                    .bindPopup(`<b>Jour ${loc.day}</b><br>${loc.name}`)
-                    .addTo(map);
                 
-                currentMarkers.push(marker);
-                latlngs.push([loc.lat, loc.lng]);
+                // Tracer la ligne du jour (vol d'oiseau)
+                if (dayId !== 'all') {
+                    currentPolyline = L.polyline(dayCoords, {color: '#E74C3C', weight: 3, dashArray: '5, 5'}).addTo(map);
+                }
             });
 
-            // Ajout de la ligne du trajet et zoom automatique
-            if (latlngs.length > 0) {
-                polyline = L.polyline(latlngs, {color: '#e74c3c', weight: 3, dashArray: '5, 10'}).addTo(map);
-                const bounds = L.latLngBounds(latlngs);
-                map.fitBounds(bounds, {padding: [50, 50], maxZoom: 14});
+            // Ajuster la vue
+            if (coords.length > 0) {
+                const group = new L.featureGroup(currentMarkers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
+            }
+
+            updateSidebarUI(dayId);
+            updatePanelContent(dayId);
+        }
+
+        /* 5. UI et Interaction */
+        function initSidebar() {
+            const list = document.getElementById('day-list');
+            
+            // Bouton "Tous les jours"
+            const allBtn = document.createElement('div');
+            allBtn.className = 'day-item active';
+            allBtn.innerText = "📍 Tous les jours (Vue globale)";
+            allBtn.onclick = () => renderMap('all');
+            list.appendChild(allBtn);
+
+            itineraryData.forEach(day => {
+                const btn = document.createElement('div');
+                btn.className = 'day-item';
+                btn.id = `day-btn-${day.day}`;
+                btn.innerText = day.title;
+                btn.onclick = () => renderMap(day.day);
+                list.appendChild(btn);
+            });
+        }
+
+        function updateSidebarUI(dayId) {
+            document.querySelectorAll('.day-item').forEach(el => el.classList.remove('active'));
+            if (dayId === 'all') {
+                document.querySelector('.day-item').classList.add('active');
+            } else {
+                document.getElementById(`day-btn-${dayId}`).classList.add('active');
             }
         }
 
-        // Charger tout par défaut au lancement
-        filterMap('all');
+        function togglePanel() {
+            const panel = document.getElementById('details-panel');
+            const btn = document.getElementById('toggle-panel-btn');
+            
+            if(panel.classList.contains('open')) {
+                panel.classList.remove('open');
+                btn.style.display = 'block';
+            } else {
+                panel.classList.add('open');
+                btn.style.display = 'none';
+            }
+        }
+
+        function updatePanelContent(dayId) {
+            const titleEl = document.getElementById('panel-title');
+            const contentEl = document.getElementById('panel-content');
+            const notesEl = document.getElementById('daily-notes');
+            
+            if (dayId === 'all') {
+                titleEl.innerText = "Résumé Global";
+                contentEl.innerHTML = "<p>Sélectionnez un jour spécifique à gauche pour voir les horaires, transports, prix, et éditer vos notes.</p>";
+                notesEl.disabled = true;
+                notesEl.value = "";
+                document.getElementById('toggle-panel-btn').style.display = 'none';
+                document.getElementById('details-panel').classList.remove('open');
+                return;
+            }
+
+            const day = itineraryData.find(d => d.day === parseInt(dayId));
+            titleEl.innerText = day.title;
+            
+            let html = "";
+            day.places.forEach((place, index) => {
+                html += `
+                <div class="place-card">
+                    <div class="place-name">${EMOJIS[place.type] || EMOJIS.default} ${place.name}</div>
+                    <div class="place-link"><a href="${place.link}" target="_blank">Emplacement ↗</a></div>
+                </div>`;
+                
+                if (place.transit) {
+                    html += `<div class="transit-box">⬇️ ${place.transit}</div>`;
+                }
+            });
+            contentEl.innerHTML = html;
+
+            // Affichage des notes écrites dans le code
+            if (day.notes) {
+                notesEl.innerHTML = day.notes;
+            } else {
+                notesEl.innerHTML = "<i>Aucune note pour ce jour.</i>";
+            }
+
+            // Afficher le bouton panel si caché
+            if (!document.getElementById('details-panel').classList.contains('open')) {
+                document.getElementById('toggle-panel-btn').style.display = 'block';
+            }
+        }
+
+        // Lancement
+        initSidebar();
+        renderMap('all');
     </script>
 </body>
 </html>
